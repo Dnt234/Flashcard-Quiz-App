@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import messagebox
 import random
 import csv
+import time
 
 class FlashcardApp:
     def __init__(self, root):
@@ -13,6 +14,9 @@ class FlashcardApp:
         self.showing_question = True
         self.show_only_unknown = False
         self.quiz_mode = False
+        self.time_left = 60
+        self.correct_answers = 0
+        self.total_questions = len(self.flashcards)
         
         self.canvas = tk.Canvas(root, width=800, height=600)
         self.canvas.pack()
@@ -43,6 +47,9 @@ class FlashcardApp:
         self.quiz_button = tk.Button(root, text="Quiz Mode", command=self.toggle_quiz_mode, width=15, height=2)
         self.quiz_button.pack(side=tk.RIGHT, padx=10, pady=10)
         
+        self.timer_label = tk.Label(root, text=f"Time left: {self.time_left}s", font=("Arial", 16))
+        self.timer_label.pack(side=tk.TOP, pady=10)
+        
         self.answer_entry = tk.Entry(root, font=("Arial", 24))
         self.answer_entry.pack(side=tk.BOTTOM, pady=10)
         self.answer_entry.bind("<Return>", self.check_answer)
@@ -57,6 +64,8 @@ class FlashcardApp:
             with open(filename, "r") as file:
                 reader = csv.DictReader(file)
                 for row in reader:
+                    if row["question"] == "Boiling point of water":
+                        row["answer"] = "100"
                     row["known"] = False
                     flashcards.append(row)
             print(f"Loaded flashcards: {flashcards}")  # Debug print
@@ -96,15 +105,43 @@ class FlashcardApp:
             correct_answer = flashcard["answer"].strip().lower()
             if user_answer == correct_answer:
                 messagebox.showinfo("Correct!", "Your answer is correct!")
+                self.correct_answers += 1
             else:
                 messagebox.showinfo("Incorrect", f"The correct answer was: {flashcard['answer']}")
             self.showing_question = False
             self.show_flashcard()
+            if self.quiz_mode:
+                self.show_next_flashcard()
+                if self.current_index == 0:
+                    self.end_quiz_mode()
     
     def toggle_quiz_mode(self):
         self.quiz_mode = not self.quiz_mode
         self.showing_question = True
+        self.correct_answers = 0
+        if self.quiz_mode:
+            self.time_left = 60
+            self.update_timer()
+        else:
+            self.timer_label.config(text="")
         self.show_flashcard()
+    
+    def end_quiz_mode(self):
+        self.quiz_mode = False
+        self.timer_label.config(text="")
+        percentage_correct = (self.correct_answers / self.total_questions) * 100
+        messagebox.showinfo("Quiz Completed", f"You answered {percentage_correct:.2f}% of questions correctly.")
+        self.show_flashcard()
+    
+    def update_timer(self):
+        if self.quiz_mode:
+            if self.time_left > 0:
+                self.time_left -= 1
+                self.timer_label.config(text=f"Time left: {self.time_left}s")
+                self.root.after(1000, self.update_timer)
+            else:
+                messagebox.showinfo("Time's up!", "You ran out of time!")
+                self.end_quiz_mode()
     
     def show_next_flashcard(self):
         print("Showing next flashcard")  # Debug print
